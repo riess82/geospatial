@@ -19,18 +19,13 @@
 #
 ##############################################################################
 {'name': 'Auto Geocoding of partners',
- 'version': '0.1',
+ 'version': '0.2',
  'category': 'GeoBI',
- 'description': """ Automatically geocode addresses using
- http://www.geonames.org/ api. We use this API because it is free and has
- little data usage restriction. However the API requires a valid username. The
- username must be specify in  the System Parameters under the key
- 'geoengine_geonames_username'.
- The limitation is that address is localized by city not by street.
- For more precize localisation you have to use a non free API. Google maps APi
- limitation exclude the use of geocoded data in OpenERP.
- You can contact Camptocamp if you need to create a specific geocoder or
- acces geocoding services.
+ 'description': """ Geolocalise your partner based on longitude and latitude provided by
+`OpenStreetMap via its Nominatim service
+<http://wiki.openstreetmap.org/wiki/Nominatim>`_. Please read carefully the
+`usage policy <http://wiki.openstreetmap.org/wiki/Nominatim_usage_policy>`_
+before using the module.
 
  Technical notes:
  PostGIS must support projection (proj4)

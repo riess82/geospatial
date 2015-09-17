@@ -30,6 +30,15 @@ from openerp.osv import fields, orm
 from openerp.osv.osv import except_osv
 from tools.translate import _
 
+try:
+    import requests
+except ImportError:
+    logger = logging.getLogger(__name__)
+    logger.warning('requests is not available in the sys path')
+
+import pdb
+
+
 
 logger = logging.getLogger('GeoNames address encoding')
 
@@ -50,67 +59,38 @@ class ResPartner(orm.Model):
         return usr.browse(
             cursor, uid, uid, context).company_id.enable_geocoding
 
-    def _get_point_from_reply(self, answer):
-        """Parse geoname answer code inspired by geopy library"""
-
-        def get_first_text(node, tag_names, strip=None):
-            """Get the text value of the first child of ``node`` with tag
-            ``tag_name``. The text is stripped using the value of ``strip``."""
-            if isinstance(tag_names, basestring):
-                tag_names = [tag_names]
-            if node:
-                while tag_names:
-                    nodes = node.getElementsByTagName(tag_names.pop(0))
-                    if nodes:
-                        child = nodes[0].firstChild
-                        return child and child.nodeValue.strip(strip)
-
-        def parse_code(code):
-            latitude = get_first_text(code, 'lat') or None
-            longitude = get_first_text(code, 'lng') or None
-            latitude = latitude and float(latitude)
-            longitude = longitude and float(longitude)
-            return Point(longitude, latitude)
-
-        res = answer.read()
-        if not isinstance(res, basestring):
-            return False
-        doc = xml.dom.minidom.parseString(res)
-        codes = doc.getElementsByTagName('code')
-        if len(codes) < 1:
-            return False
-        return parse_code(codes[0])
-
     def geocode_from_geonames(self, cursor, uid, ids, srid='900913',
                               strict=True, context=None):
         context = context or {}
-        base_url = u'http://ws.geonames.org/postalCodeSearch?'
-        config_parameter_obj = self.pool['ir.config_parameter']
-        username = config_parameter_obj.get_param(
-            cursor, uid, 'geoengine_geonames_username')
-        if not username:
-            raise except_osv(_('A username is required to access '
-                               'http://ws.geonames.org/ \n'
-                               'Please provides a valid one by setting a '
-                               'value in System Paramter for the key '
-                               '"geoengine_geonames_username"'))
+        url = u'http://nominatim.openstreetmap.org/search'
         filters = {}
         if not isinstance(ids, list):
             ids = [ids]
         for add in self.browse(cursor, uid, ids, context):
             logger.info('geolocalize %s', add.name)
-            if add.country_id.code and (add.city or add.zip):
+            if add.country_id.code and (add.city or add.zip) and add.street:
                 filters[u'country'] = add.country_id.code.encode('utf-8')
-                filters[u'username'] = username.encode('utf-8')
                 if add.city:
-                    filters[u'placename'] = add.city.encode('utf-8')
+                    filters[u'city'] = add.city.encode('utf-8')
                 if add.zip:
                     filters[u'postalcode'] = add.zip.encode('utf-8')
-                filters[u'maxRows'] = u'1'
+                if add.street:
+                    filters[u'street'] = add.street.encode('utf-8')
+                filters[u'limit'] = u'1'
+                filters[u'format'] = u'json'
+
+                request_result = requests.get(url, params=filters)
                 try:
-                    url = base_url + urlencode(filters)
-                    answer = urlopen(url)
-                    data = {'geo_point': self._get_point_from_reply(answer)}
+                    request_result.raise_for_status()
+                except Exception as e:
+                    _logger.exception('Geocoding error')
+                    raise exceptions.Warning(_(
+                        'Geocoding error. \n %s') % e.message)
+                vals = request_result.json()
+                vals = vals and vals[0] or {}
+                try:
+                    point = Point(float(vals['lon']),float(vals['lat']))
+                    data = {'geo_point': point}
                     add.write(data)
                     # We use postgres to do projection in order not to install
                     # GDAL dependences
