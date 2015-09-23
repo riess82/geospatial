@@ -22,7 +22,10 @@
 from urllib import urlencode
 from urllib2 import urlopen
 import xml.dom.minidom
-import logging
+import logging, exceptions
+_logger = logging.getLogger(__name__)
+
+import pdb
 
 from shapely.geometry import Point
 
@@ -33,8 +36,8 @@ from tools.translate import _
 try:
     import requests
 except ImportError:
-    logger = logging.getLogger(__name__)
-    logger.warning('requests is not available in the sys path')
+    _logger = logging.getLogger(__name__)
+    _logger.warning('requests is not available in the sys path')
 
 import pdb
 
@@ -72,7 +75,8 @@ class ResPartner(orm.Model):
                 filters[u'country'] = add.country_id.code.encode('utf-8')
                 if add.city:
                     filters[u'city'] = add.city.encode('utf-8')
-                if add.zip:
+                #prefer city name over zip
+                if not add.city and add.zip:
                     filters[u'postalcode'] = add.zip.encode('utf-8')
                 if add.street:
                     filters[u'street'] = add.street.encode('utf-8')
@@ -88,6 +92,14 @@ class ResPartner(orm.Model):
                         'Geocoding error. \n %s') % e.message)
                 vals = request_result.json()
                 vals = vals and vals[0] or {}
+                if not vals:
+                    # should show warning window but save data anyway, not working
+                    #_logger.exception('Geocoding error, no position returned')
+                    #raise exceptions.Warning(_(
+                    #    'Positioning error. \n'))
+                    data = {'geo_point': ''}
+                    add.write(data)
+                    continue
                 try:
                     point = Point(float(vals['lon']),float(vals['lat']))
                     data = {'geo_point': point}
@@ -95,14 +107,14 @@ class ResPartner(orm.Model):
                     # We use postgres to do projection in order not to install
                     # GDAL dependences
                     sql = """
-            UPDATE
-                res_partner
-            SET
-                geo_point = ST_Transform(st_SetSRID(geo_point, 4326), %s)
-            WHERE id = %s"""
+                    UPDATE
+                    res_partner
+                    SET
+                    geo_point = ST_Transform(st_SetSRID(geo_point, 4326), %s)
+                    WHERE id = %s"""
                     cursor.execute(sql, (srid, add.id))
                 except Exception as exc:
-                    logger.exception('error while updating geocodes')
+                    _logger.exception('error while updating geocodes')
                     if strict:
                         raise except_osv(_('Geoencoding fails'), str(exc))
         return ids
@@ -114,6 +126,7 @@ class ResPartner(orm.Model):
         if do_geocode \
             and "country_id" in vals \
             or 'city' in vals \
+            or 'street' in vals \
                 or 'zip' in vals:
             self.geocode_from_geonames(cursor, uid, ids, context=context)
         return res
