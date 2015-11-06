@@ -25,6 +25,7 @@ import xml.dom.minidom
 import logging, exceptions
 _logger = logging.getLogger(__name__)
 
+import re
 import pdb
 
 from shapely.geometry import Point
@@ -38,9 +39,6 @@ try:
 except ImportError:
     _logger = logging.getLogger(__name__)
     _logger.warning('requests is not available in the sys path')
-
-import pdb
-
 
 
 logger = logging.getLogger('GeoNames address encoding')
@@ -79,7 +77,20 @@ class ResPartner(orm.Model):
                 if not add.city and add.zip:
                     filters[u'postalcode'] = add.zip.encode('utf-8')
                 if add.street:
-                    filters[u'street'] = add.street.encode('utf-8')
+					#second try with shortened street
+					if context.get('second_try') == True:
+						street = add.street.encode('utf-8')
+						search_part = re.search(r'(?!\d+\.)\b\d+', street)
+						if not search_part:
+							exit()
+						house_number_start = search_part.start()
+						right_part = street[house_number_start:]
+						found_parts = re.split("[, \-\/!?:]+", right_part)
+						first_number_length = len(found_parts[0])
+						new_street = street[:house_number_start+first_number_length]
+						filters[u'street'] = new_street
+					else:
+						filters[u'street'] = add.street.encode('utf-8')
                 filters[u'limit'] = u'1'
                 filters[u'format'] = u'json'
 
@@ -87,19 +98,25 @@ class ResPartner(orm.Model):
                 try:
                     request_result.raise_for_status()
                 except Exception as e:
-                    _logger.exception('Geocoding error')
-                    raise exceptions.Warning(_(
-                        'Geocoding error. \n %s') % e.message)
+					_logger.exception('Geocoding error')
+					raise exceptions.Warning(_(
+						'Geocoding error. \n %s') % e.message)
                 vals = request_result.json()
                 vals = vals and vals[0] or {}
                 if not vals:
-                    # should show warning window but save data anyway, not working
-                    #_logger.exception('Geocoding error, no position returned')
-                    #raise exceptions.Warning(_(
-                    #    'Positioning error. \n'))
-                    data = {'geo_point': ''}
-                    add.write(data)
-                    continue
+					# should show warning window but save data anyway, not working
+					#_logger.exception('Geocoding error, no position returned')
+					#raise exceptions.Warning(_(
+					#    'Positioning error. \n'))
+					data = {'geo_point': ''}
+					add.write(data)
+					#call function again but with shortened street variable
+					if context.get('second_try') != True:
+						context.update({'second_try': True})
+						self.geocode_from_geonames(cursor, uid, ids, srid='900913', strict=strict, context=context)
+					else:
+						context.update({'second_try': None})
+					continue
                 try:
                     point = Point(float(vals['lon']),float(vals['lat']))
                     data = {'geo_point': point}
