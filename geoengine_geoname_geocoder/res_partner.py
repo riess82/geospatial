@@ -82,7 +82,7 @@ class ResPartner(orm.Model):
 						street = add.street.encode('utf-8')
 						search_part = re.search(r'(?!\d+\.)\b\d+', street)
 						if not search_part:
-							exit()
+							return ids
 						house_number_start = search_part.start()
 						right_part = street[house_number_start:]
 						found_parts = re.split("[, \-\/!?:]+", right_part)
