@@ -29,5 +29,11 @@ class ResPartner(geo_model.GeoModel):
     _inherit = "res.partner"
 
     _columns = {
-        'geo_point': fields.geo_point('Addresses coordinate')
+        'geo_point': fields.geo_point('Addresses coordinate'),
+        'geo_not_encode': fields.boolean('Do not encode'),
+        'geo_not_encode_reason': fields.selection((('not_on_map','Not found on map.'), ('mismapped','Location exists on map, but has different address assigned.'), ('temporary','House has no address assigned yet.'), ('other','Any other reason. Please write comment in partner to define further.')), 'Do not encode Reason'),
+
+    }
+    _defaults = {
+        'geo_not_encode': False,
     }

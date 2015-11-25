@@ -26,6 +26,7 @@ import logging, exceptions
 _logger = logging.getLogger(__name__)
 
 import re
+import time
 import pdb
 
 from shapely.geometry import Point
@@ -68,32 +69,40 @@ class ResPartner(orm.Model):
         if not isinstance(ids, list):
             ids = [ids]
         for add in self.browse(cursor, uid, ids, context):
+            if add.geo_not_encode == True:
+				continue
             logger.info('geolocalize %s', add.name)
             if add.country_id.code and (add.city or add.zip) and add.street:
                 filters[u'country'] = add.country_id.code.encode('utf-8')
                 if add.city:
-                    filters[u'city'] = add.city.encode('utf-8')
+				#remove the following from strings "x." "in" "im" "an" "am"
+				rep = {"in": "", "im": "", "an": "", "am": "", "bei": "", "ob": "", "der": "", "/": "", "\\": ""} # define desired replacements here
+				# use these three lines to do the replacement
+				rep = dict((re.escape(k), v) for k, v in rep.iteritems())
+				pattern = re.compile("|".join(rep.keys()))
+				city = pattern.sub(lambda m: rep[re.escape(m.group(0))], add.city.encode('utf-8'))
+				filters[u'city'] = re.sub('[a-z]+\.', '', city)
                 #prefer city name over zip
                 if not add.city and add.zip:
                     filters[u'postalcode'] = add.zip.encode('utf-8')
                 if add.street:
-					#second try with shortened street
-					if context.get('second_try') == True:
-						street = add.street.encode('utf-8')
-						search_part = re.search(r'(?!\d+\.)\b\d+', street)
-						if not search_part:
-							return ids
+					street = add.street.encode('utf-8')
+					search_part = re.search(r'(?!\d+\.)\b\d+', street)
+					if not search_part:
+						filters[u'street'] = add.street.encode('utf-8')
+					else:
 						house_number_start = search_part.start()
 						right_part = street[house_number_start:]
 						found_parts = re.split("[, \-\/!?:]+", right_part)
 						first_number_length = len(found_parts[0])
 						new_street = street[:house_number_start+first_number_length]
 						filters[u'street'] = new_street
-					else:
-						filters[u'street'] = add.street.encode('utf-8')
                 filters[u'limit'] = u'1'
                 filters[u'format'] = u'json'
-
+                #wait for one second as per nominatim usage policy
+                time.sleep(1)
+                #possibility to log request
+                #logger.info('connecting url %s, filters %s', url, filters)
                 request_result = requests.get(url, params=filters)
                 try:
                     request_result.raise_for_status()
@@ -110,12 +119,6 @@ class ResPartner(orm.Model):
 					#    'Positioning error. \n'))
 					data = {'geo_point': ''}
 					add.write(data)
-					#call function again but with shortened street variable
-					if context.get('second_try') != True:
-						context.update({'second_try': True})
-						self.geocode_from_geonames(cursor, uid, ids, srid='900913', strict=strict, context=context)
-					else:
-						context.update({'second_try': None})
 					continue
                 try:
                     point = Point(float(vals['lon']),float(vals['lat']))

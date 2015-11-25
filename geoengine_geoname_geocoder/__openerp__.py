@@ -27,6 +27,9 @@
 `usage policy <http://wiki.openstreetmap.org/wiki/Nominatim_usage_policy>`_
 before using the module.
 
+This module tries to find an address, trying to strip the street field of added parts like door number. This will probably result in total chaos for street strings not following the pattern [street name] [house number] [additional stuff].
+The module also tries to removes some substrings (hardcoded for the time being) from the city field.
+
  Technical notes:
  PostGIS must support projection (proj4)
  We use postgis to do the reprojection in order to avoid gdal python deps.

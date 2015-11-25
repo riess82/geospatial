@@ -23,6 +23,7 @@
  'category': 'GeoBI',
  'description': """Add geo_point on partner and addresses
  point on partner is function field that return geo point of
+ Added checkbox to mark as not encodable and reason
  """,
  'update_xml': ['geo_partner_view.xml'],
  'author': "Camptocamp,Odoo Community Association (OCA)",

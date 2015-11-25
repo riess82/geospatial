@@ -8,6 +8,9 @@
             <field name="arch" type="xml">
                 <notebook>
                     <page string="Geoengine Map">
+						<label for="geo_not_encode" /><field name="geo_not_encode" groups="base_geoengine.group_geoengine_user,base_geoengine.group_geoengine_admin" />
+						<label for="geo_not_encode_reason" attrs="{'invisible': [('geo_not_encode','=', False)]}" /> <field name="geo_not_encode_reason" groups="base_geoengine.group_geoengine_user,base_geoengine.group_geoengine_admin" attrs="{'invisible': [('geo_not_encode','=', False)]}" />
+
                         <field name="geo_point" widget="geo_edit_map"
                                groups="base_geoengine.group_geoengine_user,base_geoengine.group_geoengine_admin"/>
                     </page>
