@@ -78,7 +78,7 @@ openerp.base_geoengine = function(openerp) {
                     out.push(
                         new OpenLayers.Layer.OSM(
                             l.name,
-                            'http://tile.openstreetmap.org/${z}/${x}/${y}.png', {
+                            'https://a.tile.openstreetmap.org/${z}/${x}/${y}.png', {
                                 attribution: "<a href='http://www.camptocamp.com' style='color:orange;font-weight:bold;background-color:#FFFFFF' target='_blank'>Powered by Camptocamp</a>\
                                               using <a href='http://www.openstreetmap.org/' target='_blank'>OpenStreetMap</a> raster",
                                 buffer: 1,

@@ -113,13 +113,27 @@ class ResPartner(orm.Model):
                 vals = request_result.json()
                 vals = vals and vals[0] or {}
                 if not vals:
-					# should show warning window but save data anyway, not working
-					#_logger.exception('Geocoding error, no position returned')
-					#raise exceptions.Warning(_(
-					#    'Positioning error. \n'))
-					data = {'geo_point': ''}
-					add.write(data)
-					continue
+					# try again with ZIP and not city name
+					time.sleep(1)
+					filters[u'postalcode'] = add.zip.encode('utf-8')
+					filters[u'city'] = None
+					request_result = requests.get(url, params=filters)
+					try:
+						request_result.raise_for_status()
+					except Exception as e:
+						_logger.exception('Geocoding error')
+						raise exceptions.Warning(_(
+							'Geocoding error. \n %s') % e.message)
+					vals = request_result.json()
+					vals = vals and vals[0] or {}
+					if not vals:
+						# should show warning window but save data anyway, not working
+						#_logger.exception('Geocoding error, no position returned')
+						#raise exceptions.Warning(_(
+						#    'Positioning error. \n'))
+						data = {'geo_point': ''}
+						add.write(data)
+						continue
                 try:
                     point = Point(float(vals['lon']),float(vals['lat']))
                     data = {'geo_point': point}
