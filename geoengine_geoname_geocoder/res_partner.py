@@ -61,7 +61,7 @@ class ResPartner(orm.Model):
         return usr.browse(
             cursor, uid, uid, context).company_id.enable_geocoding
 
-    def geocode_from_geonames(self, cursor, uid, ids, srid='900913',
+    def geocode_from_geonames(self, cursor, uid, ids, srid=900913,
                               strict=True, context=None):
         context = context or {}
         url = u'http://nominatim.openstreetmap.org/search'
@@ -76,17 +76,19 @@ class ResPartner(orm.Model):
                 filters[u'country'] = add.country_id.code.encode('utf-8')
                 if add.city:
 				#remove the following from strings "x." "in" "im" "an" "am"
-				rep = {"in": "", "im": "", "an": "", "am": "", "bei": "", "ob": "", "der": "", "/": "", "\\": ""} # define desired replacements here
+				rep = {" in ": " ", " im ": " ", " an ": " ", " am ": " ", " bei ": " ", " ob ": " ", " der ": " ", "/": "", "\\": ""} # define desired replacements here
 				# use these three lines to do the replacement
 				rep = dict((re.escape(k), v) for k, v in rep.iteritems())
 				pattern = re.compile("|".join(rep.keys()))
-				city = pattern.sub(lambda m: rep[re.escape(m.group(0))], add.city.encode('utf-8'))
+				#city = pattern.sub(lambda m: rep[re.escape(m.group(0))], add.city.encode('utf-8'))
+				city = pattern.sub(lambda m: rep[re.escape(m.group(0))], add.city)
 				filters[u'city'] = re.sub('[a-z]+\.', '', city)
                 #prefer city name over zip
                 if not add.city and add.zip:
                     filters[u'postalcode'] = add.zip.encode('utf-8')
                 if add.street:
-					street = add.street.encode('utf-8')
+					#street = add.street.encode('utf-8')
+					street = add.street
 					search_part = re.search(r'(?!\d+\.)\b\d+', street)
 					if not search_part:
 						filters[u'street'] = add.street.encode('utf-8')
