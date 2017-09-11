@@ -9,6 +9,8 @@
             <field name="arch" type="xml">
                 <field name="geoengine_base_info" position="after">
                     <field name="enable_geocoding"/>
+                    <field name="offline_error_sender"/>
+                    <field name="offline_error_recipient"/>
                 </field>
             </field>
         </record>

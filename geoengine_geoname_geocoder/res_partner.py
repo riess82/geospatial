@@ -27,7 +27,6 @@ _logger = logging.getLogger(__name__)
 
 import re
 import time
-import pdb
 
 from shapely.geometry import Point
 
@@ -105,13 +104,28 @@ class ResPartner(orm.Model):
                 time.sleep(1)
                 #possibility to log request
                 #logger.info('connecting url %s, filters %s', url, filters)
-                request_result = requests.get(url, params=filters)
                 try:
-                    request_result.raise_for_status()
+					request_result = requests.get(url, params=filters)
+					try:
+						request_result.raise_for_status()
+					except Exception as e:
+						_logger.exception('Geocoding error')
+						raise exceptions.Warning(_(
+							'Geocoding error. \n %s') % e.message)
                 except Exception as e:
-					_logger.exception('Geocoding error')
-					raise exceptions.Warning(_(
-						'Geocoding error. \n %s') % e.message)
+						_logger.exception('Geocoding connection error')
+						company_id = self.pool.get('res.users').browse(cursor, uid, uid).company_id.id
+						sender =  self.pool.get('res.company').browse(cursor, uid, company_id).offline_error_sender
+						receivers =  self.pool.get('res.company').browse(cursor, uid, company_id).offline_error_recipient
+						Subj = _("OpenERP Warning")
+						import string, smtplib, socket
+						partner = add.name
+						message = _("""Warning: Host {host}
+						Database {database}
+						Partner {partner}
+						Address not encoded, because connection to Nominatim failed.
+						""").format(host=socket.gethostname(),database = cr.dbname, partner = partner)
+
                 vals = request_result.json()
                 vals = vals and vals[0] or {}
                 if not vals:
@@ -156,14 +170,20 @@ class ResPartner(orm.Model):
         return ids
 
     def write(self, cursor, uid, ids, vals, context=None):
-        res = super(ResPartner, self).write(
-            cursor, uid, ids, vals, context=None)
+        encode = False
         do_geocode = self._can_geocode(cursor, uid, context)
         if do_geocode \
             and "country_id" in vals \
             or 'city' in vals \
             or 'street' in vals \
                 or 'zip' in vals:
+            if (vals.get('country_id') and vals['country_id'] != self.browse(cursor, uid, ids[0]).country_id.id) or \
+            (vals.get('city') and vals['city'] != self.browse(cursor, uid, ids[0]).city) or \
+            (vals.get('street') and vals['street'] != self.browse(cursor, uid, ids[0]).street) or \
+            (vals.get('zip') and vals['zip'] != self.browse(cursor, uid, ids[0]).zip):
+				encode = True
+        res = super(ResPartner, self).write(cursor, uid, ids, vals, context=None)
+        if encode:
             self.geocode_from_geonames(cursor, uid, ids, context=context)
         return res
 

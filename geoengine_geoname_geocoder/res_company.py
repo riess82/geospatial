@@ -29,7 +29,10 @@ class ResCompany(orm.Model):
     _inherit = "res.company"
 
     _columns = {
-        'enable_geocoding': fields.boolean('Enable Addresse Geocoding')
+        'enable_geocoding': fields.boolean('Enable Addresse Geocoding'),
+        'offline_error_sender':fields.char('Sender Email',size=256, help="Email Address to use as Sender for Offline Error Messages."),
+        'offline_error_recipient':fields.char('Recipient Email',size=256, help="Email Address to use as Recipient for Offline Error Messages."),
+
     }
 
     _defaults = {
