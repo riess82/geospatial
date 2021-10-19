@@ -71,8 +71,15 @@ class ResPartner(orm.Model):
             if add.geo_not_encode == True:
 				continue
             logger.info('geolocalize %s', add.name)
-            if add.country_id.code and (add.city or add.zip) and add.street:
-                filters[u'country'] = add.country_id.code.encode('utf-8')
+            if add.country_id.name and (add.city or add.zip) and add.street:
+                #switch to english for country name
+                if 'lang' in context:
+                    context['orig_lang'] = context['lang']
+                    filters[u'country'] = self.pool.get('res.country').browse(cursor, uid, add.country_id.id).name.encode('utf-8')
+                    context['lang'] = context['orig_lang']
+                    del context['orig_lang']
+                else:
+                    filters[u'country'] = self.pool.get('res.country').browse(cursor, uid, add.country_id.id).name.encode('utf-8')
                 if add.city:
 				#remove the following from strings "x." "in" "im" "an" "am"
 				rep = {" in ": " ", " im ": " ", " an ": " ", " am ": " ", " bei ": " ", " ob ": " ", " der ": " ", "/": "", "\\": ""} # define desired replacements here
@@ -103,7 +110,9 @@ class ResPartner(orm.Model):
                 #wait for one second as per nominatim usage policy
                 time.sleep(1)
                 #possibility to log request
-                #logger.info('connecting url %s, filters %s', url, filters)
+                logger.info('connecting url %s, filters %s', url, filters)
+                #import pdb
+                #pdb.set_trace()
                 try:
 					request_result = requests.get(url, params=filters)
 					try:
@@ -112,20 +121,36 @@ class ResPartner(orm.Model):
 						_logger.exception('Geocoding error')
 						raise exceptions.Warning(_(
 							'Geocoding error. \n %s') % e.message)
+						email_template_obj = self.pool.get('email.template')
+						template_ids = email_template_obj.search(cursor, uid, [('name', '=','Geocode Error')], context=context) 
+						if template_ids:
+							asdf = 'Asdf'
+							values = email_template_obj.generate_email(cursor, uid, template_ids[0], add, context=context)
+							values['email_to'] = self.pool.get('res.users').browse(cursor, uid, uid).email
+							mail_mail_obj = self.pool.get('mail.mail')
+							del values['attachments']
+							del values['email_recipients']
+							msg_id = mail_mail_obj.create(cursor, uid, values, context=context)
+							if msg_id:
+								mail_mail_obj.send(cursor, uid, [msg_id], context=context)
+							#############email_obj=self.pool.get('email.template').send_mail(cursor, uid, template_ids[0], add, force_send=True)
+						return
                 except Exception as e:
-						_logger.exception('Geocoding connection error')
-						company_id = self.pool.get('res.users').browse(cursor, uid, uid).company_id.id
-						sender =  self.pool.get('res.company').browse(cursor, uid, company_id).offline_error_sender
-						receivers =  self.pool.get('res.company').browse(cursor, uid, company_id).offline_error_recipient
-						Subj = _("OpenERP Warning")
-						import string, smtplib, socket
-						partner = add.name
-						message = _("""Warning: Host {host}
-						Database {database}
-						Partner {partner}
-						Address not encoded, because connection to Nominatim failed.
-						""").format(host=socket.gethostname(),database = cr.dbname, partner = partner)
-
+					_logger.exception('Geocoding connection error')
+					email_template_obj = self.pool.get('email.template')
+					template_ids = email_template_obj.search(cursor, uid, [('name', '=','Geocode Error')], context=context) 
+					if template_ids:
+						asdf = 'Asdf'
+						values = email_template_obj.generate_email(cursor, uid, template_ids[0], add, context=context)
+						values['email_to'] = self.pool.get('res.users').browse(cursor, uid, uid).email
+						mail_mail_obj = self.pool.get('mail.mail')
+						del values['attachments']
+						del values['email_recipients']
+						msg_id = mail_mail_obj.create(cursor, uid, values, context=context)
+						if msg_id:
+							mail_mail_obj.send(cursor, uid, [msg_id], context=context)
+						#############email_obj=self.pool.get('email.template').send_mail(cursor, uid, template_ids[0], add, force_send=True)
+					return
                 vals = request_result.json()
                 vals = vals and vals[0] or {}
                 if not vals:
@@ -151,18 +176,18 @@ class ResPartner(orm.Model):
 						add.write(data)
 						continue
                 try:
-                    point = Point(float(vals['lon']),float(vals['lat']))
-                    data = {'geo_point': point}
-                    add.write(data)
+                    #point = Point(float(vals['lon']),float(vals['lat']))
+                    #data = {'geo_point': point}
+                    #add.write(data)
                     # We use postgres to do projection in order not to install
                     # GDAL dependences
                     sql = """
                     UPDATE
                     res_partner
                     SET
-                    geo_point = ST_Transform(st_SetSRID(geo_point, 4326), %s)
+                    geo_point = ST_SetSRID(ST_Transform(ST_SetSRID(ST_MakePoint(%s,%s),4326),3857),900913)
                     WHERE id = %s"""
-                    cursor.execute(sql, (srid, add.id))
+                    cursor.execute(sql, (vals['lon'],vals['lat'], add.id))
                 except Exception as exc:
                     _logger.exception('error while updating geocodes')
                     if strict:
