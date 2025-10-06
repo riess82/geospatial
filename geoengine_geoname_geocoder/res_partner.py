@@ -110,11 +110,21 @@ class ResPartner(orm.Model):
                 #wait for one second as per nominatim usage policy
                 time.sleep(1)
                 #possibility to log request
-                logger.info('connecting url %s, filters %s', url, filters)
+                #logger.info('connecting url %s, filters %s', url, filters)
+                #import pdb
+                #pdb.set_trace()
+                #need user agent defined for nominatim
+                usr = self.pool['res.users']
+                agent_email = usr.browse(cursor, uid, uid, context).company_id.nominatim_user_agent_email or ''
+                agent_name = usr.browse(cursor, uid, uid, context).company_id.nominatim_user_agent_name or ''
+                headers = {
+                    'User-Agent': agent_name,
+                    'From': agent_email  # This is another valid field
+                }
                 #import pdb
                 #pdb.set_trace()
                 try:
-					request_result = requests.get(url, params=filters)
+					request_result = requests.get(url, headers=headers, params=filters)
 					try:
 						request_result.raise_for_status()
 					except Exception as e:

@@ -11,6 +11,8 @@
                     <field name="enable_geocoding"/>
                     <field name="offline_error_sender"/>
                     <field name="offline_error_recipient"/>
+                    <field name="nominatim_user_agent_email"/>
+                    <field name="nominatim_user_agent_name"/>
                 </field>
             </field>
         </record>

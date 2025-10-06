@@ -32,6 +32,8 @@ class ResCompany(orm.Model):
         'enable_geocoding': fields.boolean('Enable Addresse Geocoding'),
         'offline_error_sender':fields.char('Sender Email',size=256, help="Email Address to use as Sender for Offline Error Messages."),
         'offline_error_recipient':fields.char('Recipient Email',size=256, help="Email Address to use as Recipient for Offline Error Messages."),
+        'nominatim_user_agent_email':fields.char('Nominatim Email',size=256, help="Email Address to use as contact for user-agent at nominatim."),
+        'nominatim_user_agent_name':fields.char('Nominatim Agent Name',size=256, help="Agent Name to use for user-agent at nominatim."),
 
     }
 
