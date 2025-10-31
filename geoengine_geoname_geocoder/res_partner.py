@@ -107,8 +107,6 @@ class ResPartner(orm.Model):
 						filters[u'street'] = new_street
                 filters[u'limit'] = u'1'
                 filters[u'format'] = u'json'
-                #wait for one second as per nominatim usage policy
-                time.sleep(1)
                 #possibility to log request
                 #logger.info('connecting url %s, filters %s', url, filters)
                 #import pdb
@@ -134,7 +132,6 @@ class ResPartner(orm.Model):
 						email_template_obj = self.pool.get('email.template')
 						template_ids = email_template_obj.search(cursor, uid, [('name', '=','Geocode Error')], context=context) 
 						if template_ids:
-							asdf = 'Asdf'
 							values = email_template_obj.generate_email(cursor, uid, template_ids[0], add, context=context)
 							values['email_to'] = self.pool.get('res.users').browse(cursor, uid, uid).email
 							mail_mail_obj = self.pool.get('mail.mail')
@@ -167,14 +164,17 @@ class ResPartner(orm.Model):
 					# try again with ZIP and not city name
 					time.sleep(1)
 					filters[u'postalcode'] = add.zip.encode('utf-8')
-					filters[u'city'] = None
-					request_result = requests.get(url, params=filters)
+					del filters[u'city']
+					#wait for one second as per nominatim usage policy
+					time.sleep(1)
+					#logger.info('connecting url %s, filters %s', url, filters)
+					request_result = requests.get(url, headers=headers, params=filters)
 					try:
 						request_result.raise_for_status()
 					except Exception as e:
-						_logger.exception('Geocoding error')
+						_logger.exception('Geocoding error at try 2')
 						raise exceptions.Warning(_(
-							'Geocoding error. \n %s') % e.message)
+							'Geocoding error at try 2. \n %s') % e.message)
 					vals = request_result.json()
 					vals = vals and vals[0] or {}
 					if not vals:
